@@ -1,0 +1,32 @@
+title = "Time-series momentum on a random walk (null)"
+
+[data]
+kind = "synthetic"
+generator = "random_walk"
+n_days = 2520
+n_assets = 8
+seed = 7
+
+[strategy]
+name = "time_series_momentum"
+lookback = 126
+skip = 5
+
+[portfolio]
+target_vol = 0.10
+
+[costs]
+commission_bps = 1.0
+half_spread_bps = 2.5
+
+[execution]
+lag = 1
+rebalance_threshold = 0.01
+
+[grid]
+lookback = [21, 63, 126, 252]
+skip = [0, 5, 10]
+
+[walk_forward]
+train = 756
+test = 252

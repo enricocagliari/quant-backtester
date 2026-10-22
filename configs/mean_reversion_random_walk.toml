@@ -1,0 +1,28 @@
+title = "Short-horizon mean reversion on a random walk (null)"
+
+[data]
+kind = "synthetic"
+generator = "random_walk"
+n_days = 2520
+n_assets = 8
+seed = 11
+
+[strategy]
+name = "mean_reversion"
+window = 10
+z_cap = 2.0
+
+[costs]
+commission_bps = 1.0
+half_spread_bps = 2.5
+
+[execution]
+lag = 1
+
+[grid]
+window = [5, 10, 20, 40]
+z_cap = [1.0, 2.0, 3.0]
+
+[walk_forward]
+train = 756
+test = 252
