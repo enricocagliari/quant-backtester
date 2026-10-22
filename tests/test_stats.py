@@ -21,7 +21,7 @@ def test_sharpe_and_standard_error():
     assert sr == pytest.approx(r.mean() / r.std(ddof=1) * math.sqrt(252))
     se = stats.sharpe_standard_error(r)
     assert se == pytest.approx(math.sqrt((1 + 0.5 * (sr / math.sqrt(252)) ** 2) / 2520) * math.sqrt(252))
-    assert stats.sharpe_ratio(pd.Series([0.01, 0.01, 0.01])) != stats.sharpe_ratio(pd.Series([0.01, 0.01, 0.01]))  # nan
+    assert math.isnan(stats.sharpe_ratio(pd.Series([0.01, 0.01, 0.01])))
 
 
 def test_drawdown_statistics():
@@ -39,7 +39,8 @@ def test_psr_and_dsr_behave_sensibly():
     # A single trial deflates nothing; more trials deflate more.
     assert stats.deflated_sharpe_ratio(0.1, 1000, 1, 0.01) == pytest.approx(stats.probabilistic_sharpe_ratio(0.1, 0.0, 1000))
     assert stats.deflated_sharpe_ratio(0.1, 1000, 100, 0.01) < stats.deflated_sharpe_ratio(0.1, 1000, 10, 0.01)
-    assert stats.expected_max_sharpe(100, 0.01) == pytest.approx(0.1 * 2.5, abs=0.2)
+    # sqrt(0.01) * ((1 - gamma) * ppf(0.99) + gamma * ppf(1 - 1 / (100 e))) = 0.1 * (0.4228 * 2.3263 + 0.5772 * 2.6789)
+    assert stats.expected_max_sharpe(100, 0.01) == pytest.approx(0.2530, abs=0.001)
 
 
 def test_bootstrap_interval_contains_point_estimate():

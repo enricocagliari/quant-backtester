@@ -23,15 +23,18 @@ def limit_gross(weights: pd.DataFrame, gross: float = 1.0) -> pd.DataFrame:
 
 
 def target_volatility(weights: pd.DataFrame, prices: pd.DataFrame, target_vol: float = 0.10,
-                      window: int = 63, max_leverage: float = 3.0, min_periods: int | None = None) -> pd.DataFrame:
+                      window: int = 63, max_leverage: float = 3.0, min_periods: int | None = None,
+                      execution_lag: int = 1) -> pd.DataFrame:
     """Scale weights so trailing realized volatility of the strategy matches ``target_vol``.
 
-    The strategy's own realized return proxy is yesterday's weights times
-    today's asset returns. Its rolling standard deviation up to day t sets the
-    scale applied to day t's weights, so the overlay never sees the future.
+    The strategy's realized return on day t comes from the weights decided
+    ``execution_lag`` + 1 days earlier: decided at t - lag - 1, executed at the
+    close of t - lag, held through day t. The rolling standard deviation of
+    that proxy up to day t sets the scale applied to day t's weights, so the
+    overlay never sees the future.
     """
     asset_returns = prices.pct_change()
-    proxy = (weights.shift(1) * asset_returns).sum(axis=1, min_count=1)
+    proxy = (weights.shift(execution_lag + 1) * asset_returns).sum(axis=1, min_count=1)
     realized = proxy.rolling(window, min_periods=min_periods or window).std() * np.sqrt(TRADING_DAYS)
     scale = (target_vol / realized.replace(0.0, np.nan)).clip(upper=max_leverage)
     return weights.mul(scale, axis=0)

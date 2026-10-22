@@ -32,6 +32,20 @@ def test_walk_forward_windows_tile_the_history_without_overlap():
     assert len(wf.returns) == 600
     assert wf.returns.index.is_monotonic_increasing and not wf.returns.index.has_duplicates
     assert wf.n_trials == 2
+    # The weights decided on the last training day are executed on the first test day:
+    # with a commission, day one of every fold pays the cost of entering the position.
+    with_costs = validation.walk_forward(prices, factory, {'lookback': [20, 60]}, train=400, test=200,
+                                         costs=Costs(1.0, 0.0))
+    for fold in with_costs.folds:
+        assert with_costs.returns.loc[fold.test_start] < 0.0
+
+
+def test_anchored_walk_forward_grows_the_training_window():
+    prices = synthetic.random_walk(n_days=1000, n_assets=3, seed=5)
+    wf = validation.walk_forward(prices, factory, {'lookback': [20, 60]}, train=400, test=200,
+                                 costs=Costs(0, 0), anchored=True)
+    assert [f.train_start for f in wf.folds] == [prices.index[0]] * 3
+    assert [len(prices.loc[f.train_start:f.train_end]) for f in wf.folds] == [400, 600, 800]
 
 
 def test_walk_forward_parameters_come_only_from_training_data():
@@ -66,7 +80,10 @@ def test_walk_forward_rejects_short_history(prices):
         validation.walk_forward(prices, factory, {'lookback': [20]}, train=500, test=200)
 
 
-def test_sharpe_variance_feeds_deflation(prices):
+def test_grid_result_deflates_its_own_best(prices):
     result = validation.grid_search(prices, factory, {'lookback': [10, 20, 40, 80]}, Costs(0, 0))
-    assert result.sharpe_variance >= 0
-    assert abs(sharpe_ratio(pd.Series([0.01, -0.01] * 50))) < 1e-9
+    assert result.sharpe_variance >= 0 and result.n_trials == 4
+    assert sharpe_ratio(result.best_returns) == result.best_sharpe
+    single = validation.grid_search(prices, factory, {'lookback': [result.best['lookback']]}, Costs(0, 0))
+    # One trial is not deflated; four trials are deflated below the one-trial probability.
+    assert 0 <= result.deflated_sharpe < single.deflated_sharpe <= 1

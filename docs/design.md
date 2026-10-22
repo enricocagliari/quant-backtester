@@ -34,9 +34,9 @@ The simulation is a Python loop over days with NumPy vectors across assets. Ten 
 
 - Sharpe ratio: mean / standard deviation of daily returns times √252, no risk-free adjustment unless `rf` is passed.
 - Standard error: Lo (2002), SE(SR_daily) = √((1 + SR_daily² / 2) / T), annualized by √252. This assumes iid returns; the block bootstrap below does not.
-- Block bootstrap: circular blocks of 20 days resampled 2000 times; the interval is the 2.5th and 97.5th percentile of the resampled Sharpe ratios.
+- Block bootstrap: circular blocks of 20 days resampled 2000 times; the interval is the 2.5th and 97.5th percentile of the resampled Sharpe ratios. Percentile intervals of this kind under-cover slightly: on iid normal returns with a true annual Sharpe of 0.5 over four years, 100 repetitions covered the truth 91 times rather than 95.
 - Probabilistic Sharpe ratio (Bailey and Lopez de Prado, 2012): P(true SR > SR*) = Φ((SR − SR*) √(T − 1) / √(1 − γ₃ SR + (γ₄ − 1) SR² / 4)) with daily Sharpe, skew γ₃ and raw kurtosis γ₄ of the daily returns.
-- Deflated Sharpe ratio (Bailey and Lopez de Prado, 2014): the PSR evaluated against SR* = √V [(1 − γ) Φ⁻¹(1 − 1/N) + γ Φ⁻¹(1 − 1/(N e))], the expected maximum Sharpe of N unskilled trials with Sharpe variance V, where γ is the Euler-Mascheroni constant. `grid_search` reports V as the variance of daily Sharpe across the grid; `walk_forward` averages it over folds. This treats grid points as independent trials, which overstates N when neighbouring parameters are highly correlated, so the deflation is conservative.
+- Deflated Sharpe ratio (Bailey and Lopez de Prado, 2014): the PSR evaluated against SR* = √V [(1 − γ) Φ⁻¹(1 − 1/N) + γ Φ⁻¹(1 − 1/(N e))], the expected maximum Sharpe of N unskilled trials with Sharpe variance V, where γ is the Euler-Mascheroni constant. `GridResult.deflated_sharpe` applies it to the statistic it was designed for: the best in-sample Sharpe, with N the grid size, V the variance of daily Sharpe across the grid, and skew and kurtosis from the winning configuration's returns. It is not applied to walk-forward returns, which were never selected; deflating them again would double-count the penalty. Treating grid points as independent trials overstates N when neighbouring parameters are correlated, so the deflation is conservative: on random walks the formula predicts a best-of-six annual Sharpe of 0.41 where the empirical mean over 30 seeds is 0.30.
 - The inverse normal CDF is Acklam's rational approximation refined with one Newton step, accurate to about 1e-9, to avoid a SciPy dependency.
 
 ## Walk-forward
@@ -45,12 +45,12 @@ Given a grid of parameter sets, a training length and a test length:
 
 1. For each test window, run the grid search on the training window immediately before it (rolling) or on all history before it (anchored). The search backtests every parameter set with costs and picks the best Sharpe.
 2. Compute the winning strategy's weights on history up to the end of the test window. Because signals only look backwards this is identical to computing them day by day.
-3. Backtest the test window only, starting one execution lag before it so the first test day can trade, and keep the returns.
+3. Simulate from one execution lag before the test window, so that the weights decided on the last training days are executed on the first test day, and discard the warm-up bars. A test checks that with a commission every fold's first day pays an entry cost.
 4. Concatenate the out-of-sample returns across folds; the first training window is never scored.
 
 The grid search on the full history is reported alongside. The gap between the two is the selection effect. `tests/test_validation.py::test_in_sample_beats_out_of_sample_on_pure_noise` checks that the gap is positive on random walks across ten seeds.
 
-Starting the test backtest flat and starting each fold with fresh capital are simplifications: a live strategy carries positions across the boundary, and parameter changes between folds would cause a rebalance. Both effects are small at these turnover levels and both bias the result against the strategy, not for it.
+Each fold starts flat with fresh capital. This is a simplification in two directions: the strategy pays an entry cost on the first day of every fold that a live book carrying positions across the boundary would not pay in full (biases against), and it does not pay the rebalance that a parameter change between folds would trigger (biases for). At the turnover levels in the examples each is on the order of one day's trading per year.
 
 ## What is deliberately absent
 

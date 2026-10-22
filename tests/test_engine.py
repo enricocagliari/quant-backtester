@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 
 from qbt.engine import Costs, run_backtest
-from qbt.signals import buy_and_hold
+from qbt.signals import buy_and_hold, time_series_momentum
 
 ZERO = Costs(commission_bps=0, half_spread_bps=0)
 
@@ -38,12 +38,12 @@ def test_costs_equal_rate_times_traded_notional(flat_prices):
 
 
 def test_future_prices_cannot_change_past_trades(prices):
-    weights = buy_and_hold(prices, {'A00': 0.7, 'A01': -0.3})
-    full = run_backtest(prices, weights, Costs())
     cut = 300
     shocked = prices.copy()
     shocked.iloc[cut:] *= np.random.default_rng(0).uniform(0.9, 1.1, size=shocked.iloc[cut:].shape)
-    partial = run_backtest(shocked, weights, Costs())
+    # A real signal on each price history, then the engine on each: nothing before the cut may differ.
+    full = run_backtest(prices, time_series_momentum(prices, 60, 5), Costs())
+    partial = run_backtest(shocked, time_series_momentum(shocked, 60, 5), Costs())
     pd.testing.assert_frame_equal(full.shares.iloc[:cut], partial.shares.iloc[:cut])
     pd.testing.assert_series_equal(full.equity.iloc[:cut], partial.equity.iloc[:cut])
 

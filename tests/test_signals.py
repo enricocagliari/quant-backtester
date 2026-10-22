@@ -12,6 +12,9 @@ CASES = {
     'meanrev': lambda p: signals.mean_reversion(p, window=10),
     'pairs': lambda p: signals.pairs_trading(p, 'A00', 'A01', window=30),
     'vol_target': lambda p: portfolio.target_volatility(signals.mean_reversion(p, 10), p, 0.1, window=20),
+    'cap': lambda p: portfolio.cap_weights(signals.mean_reversion(p, 10), 0.1),
+    'gross': lambda p: portfolio.limit_gross(signals.time_series_momentum(p, 60, 5), 0.5),
+    'buy_and_hold': lambda p: signals.buy_and_hold(p),
 }
 
 

@@ -27,9 +27,9 @@ print(format_stats(summarize(result.returns, result.turnover), 'Single configura
 comparison = in_sample_vs_out_of_sample(prices, factory, {'lookback': [21, 63, 126, 252], 'skip': [0, 5, 10]},
                                         costs, train=756, test=252)
 wf = comparison['walk_forward']
-print(f"\nBest in-sample: {comparison['in_sample_best']} Sharpe {comparison['in_sample_sharpe']:.2f}")
+print(f"\nBest in-sample: {comparison['in_sample_best']} Sharpe {comparison['in_sample_sharpe']:.2f}, "
+      f"deflated P(SR > 0) {comparison['in_sample_deflated_sharpe']:.1%} over {comparison['n_trials']} trials")
 print(f"Walk-forward out-of-sample Sharpe: {comparison['out_of_sample_sharpe']:.2f}")
 print(wf.summary().to_string(index=False))
 print()
-print(format_stats(summarize(wf.returns, n_trials=comparison['n_trials'],
-                             trial_sr_variance=comparison['trial_sharpe_variance']), 'Out of sample, deflated'))
+print(format_stats(summarize(wf.returns), 'Out of sample'))

@@ -46,7 +46,8 @@ def build_strategy(config: dict):
             if 'target_vol' in overlay:
                 weights = portfolio.target_volatility(weights, prices, overlay['target_vol'],
                                                       overlay.get('vol_window', 63),
-                                                      overlay.get('max_leverage', 3.0))
+                                                      overlay.get('max_leverage', 3.0),
+                                                      execution_lag=config.get('execution', {}).get('lag', 1))
             return weights
         return strategy
     return factory
@@ -92,16 +93,20 @@ def cmd_walk_forward(args) -> int:
     title = config.get('title', Path(args.config).stem)
     print(f'# Walk-forward: {title}', '')
     print(f"Grid of {comparison['n_trials']} parameter sets. Best in-sample on full history: "
-          f"{comparison['in_sample_best']} with Sharpe {comparison['in_sample_sharpe']:.2f}.")
+          f"{comparison['in_sample_best']} with Sharpe {comparison['in_sample_sharpe']:.2f}; "
+          f"deflated for {comparison['n_trials']} trials, P(true Sharpe > 0) = "
+          f"{comparison['in_sample_deflated_sharpe']:.1%}.")
     print(f"Walk-forward out-of-sample Sharpe: {comparison['out_of_sample_sharpe']:.2f} "
-          f"over {len(wf.folds)} folds.", '')
+          f"over {len(wf.folds)} folds (not selected, so not deflated).", '')
     print(wf.summary().to_markdown(index=False, floatfmt='.2f') if _has_tabulate() else wf.summary().to_string())
-    stats = summarize(wf.returns, n_trials=comparison['n_trials'],
-                      trial_sr_variance=comparison['trial_sharpe_variance'])
+    stats = summarize(wf.returns)
     print('', report.format_stats(stats, 'Out-of-sample statistics'))
     if args.json:
-        Path(args.json).write_text(json.dumps({**stats, 'folds': wf.summary().to_dict('records')},
-                                              indent=2, default=str))
+        payload = {**stats, 'in_sample_best': comparison['in_sample_best'],
+                   'in_sample_sharpe': comparison['in_sample_sharpe'],
+                   'in_sample_deflated_sharpe': comparison['in_sample_deflated_sharpe'],
+                   'n_trials': comparison['n_trials'], 'folds': wf.summary().to_dict('records')}
+        Path(args.json).write_text(json.dumps(payload, indent=2, default=str))
     return 0
 
 
